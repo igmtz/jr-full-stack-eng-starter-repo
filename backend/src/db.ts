@@ -7,7 +7,7 @@ export const pool = new Pool({
 // Verify connection on startup
 pool.query("SELECT 1").then(() => {
   console.log("✓ Database connected");
-}).catch((err) => {
+}).catch((err: { message: any; }) => {
   console.error("✗ Database connection failed:", err.message);
   process.exit(1);
 });
