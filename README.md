@@ -1,13 +1,15 @@
-# ROP Renewal Risk Dashboard — Starter Repo
+# ROP Renewal Risk Dashboard
 
-This is the starter repo for the Jr. Full Stack Engineer take-home test. 
+A renewal risk scoring API and React dashboard for identifying residents at risk of not renewing their leases.
 
-**Please see docs/SPEC.md for project instructions.**
+---
 
 ## Quick Start
 
+> **Note:** The repo uses `docker-compose` (v1 syntax) in its scripts, but Docker Desktop on recent versions ships only the v2 CLI (`docker compose`). Either works — just replace `docker-compose` with `docker compose` if you get a "command not found" error.
+
 ```bash
-docker-compose up --build
+docker compose up --build
 ```
 
 This starts four services:
@@ -140,3 +142,49 @@ docker-compose down -v
 - If something is ambiguous, make a decision and document it in your README
 
 Good luck.
+
+# Implementation
+
+## How to trigger a risk calculation and see results
+
+1. Open http://localhost:5173 — the home page lists all seeded properties.
+2. Click **Park Meadows Apartments** to open the Renewal Risk Dashboard.
+3. Click **Calculate Risk Scores** — the button POSTs to the backend, which scores all active residents and persists results.
+4. The table renders immediately with all 12 residents sorted highest-risk first, color-coded tier badges, and a risk score bar per row.
+5. Click any resident row to expand the signal breakdown (days to expiry, delinquency, renewal offer status, rent gap).
+6. Click **Trigger Renewal** on any row to forward that resident's risk data to the mock RMS webhook. The button shows a "✓ Sent" confirmation with a "send again?" action.
+7. To verify webhook delivery: `docker compose logs -f mock-rms`
+8. Click **Recalculate** at any time to re-run scoring — previous DB rows are cleared and replaced atomically.
+
+---
+
+## Decisions and assumptions
+
+| Topic | Decision |
+|-------|----------|
+| Architecture | Database queries, business logic, and HTTP layer are separated into distinct modules (`renewalRisk.queries.ts`, `renewalRisk.scoring.ts`, `index.ts`) to improve testability and maintainability. |
+| Pure functions for business logic | Scoring algorithms are implemented as pure functions without side effects, making them testable, and easier to debug. |
+| No active residents → 404 | Chose 404 over an empty 200 as an error case. |
+| Response sort order | Residents sorted highest-risk-first before returning and persisting — convenient for the frontend table. |
+| Priya Patel's expected tier | The README seed table labels her "Medium", but the spec formula yields 90 (HIGH) once interaction bonuses are applied. I'm taking the formula is the authoritative source. |
+
+---
+
+## What I'd improve with more time
+
+1. **Unit tests for scoring functions** — `renewalRisk.scoring.ts` is already pure functions with no dependencies. We could write individual tests for every boundary condition and all interaction.
+2. **Better folder structure for separation of concerns** — Organize backend source files into specific directories: `database/` for queries, `services/` for business logic, `routes/` for HTTP endpoints, and `types/` for shared interfaces to improve code organization and maintainability.
+
+---
+
+## AI assistance
+
+Claude Code (claude-sonnet-4-6) was used throughout this implementation.
+
+In brief:
+- AI was strong at: translating the scoring formula into small pure functions, writing the LATERAL-subquery SQL, and accelerating the initial implementation.
+- Human review was needed for: verifying boundary conditions against the spec exactly, cross-checking interaction bonuses against each seed scenario, and confirming provided data vs results.
+
+## Logged time
+
+1 hour and 58 minutes
