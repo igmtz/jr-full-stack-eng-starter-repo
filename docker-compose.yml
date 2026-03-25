@@ -1,0 +1,50 @@
+services:
+  db:
+    image: postgres:16-alpine
+    ports:
+      - 5432:5432
+    environment:
+      POSTGRES_DB: rop
+      POSTGRES_USER: rop
+      POSTGRES_PASSWORD: rop
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ./db/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rop"]
+      interval: 3s
+      retries: 5
+
+  backend:
+    build: ./backend
+    ports:
+      - 3003:3003
+    environment:
+      DATABASE_URL: postgres://rop:rop@db:5432/rop
+      PORT: 3003
+      MOCK_RMS_URL: http://mock-rms:3001/webhook
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./backend/src:/app/src
+
+  frontend:
+    build: ./frontend
+    ports:
+      - 5173:5173
+    environment:
+      VITE_API_URL: http://localhost:3003
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend/src:/app/src
+
+  mock-rms:
+    build: ./mock-rms
+    ports:
+      - 3001:3001
+
+volumes:
+  pgdata:
