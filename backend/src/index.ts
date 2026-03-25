@@ -86,16 +86,51 @@ app.post("/api/v1/properties/:propertyId/renewal-risk/calculate", async (req, re
   }
 });
 
-// =============================================================
-// TODO (Bonus): Add your trigger renewal event endpoint here
-//
-// POST /api/v1/properties/:propertyId/residents/:residentId/trigger-renewal
-//
-// This should POST to the mock RMS endpoint (MOCK_RMS_URL env var).
-// =============================================================
+// POST /api/v1/properties/:propertyId/residents/:residentId/trigger-renewal (Bonus)
+app.post(
+  "/api/v1/properties/:propertyId/residents/:residentId/trigger-renewal",
+  async (req, res) => {
+    const { propertyId, residentId } = req.params;
+    const mockRmsUrl = process.env.MOCK_RMS_URL;
 
-app.listen(PORT, () => {
-  console.log(`✓ Backend running on http://localhost:${PORT}`);
-  console.log(`✓ Health check: http://localhost:${PORT}/api/health`);
-  console.log(`✓ Mock RMS URL: ${process.env.MOCK_RMS_URL || "not configured"}`);
-});
+    if (!mockRmsUrl) {
+      res.status(500).json({ error: "MOCK_RMS_URL not configured" });
+      return;
+    }
+
+    try {
+      const payload = {
+        event: "renewal.risk_flagged",
+        eventId: `evt-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        propertyId,
+        residentId,
+        data: req.body,
+      };
+
+      const rmsRes = await fetch(mockRmsUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!rmsRes.ok) throw new Error(`RMS responded with ${rmsRes.status}`);
+      res.json({ success: true });
+    } catch (err) {
+      console.error("[trigger-renewal] Error:", err);
+      res.status(502).json({ error: "Failed to reach RMS" });
+    }
+  }
+);
+
+export default app;
+
+// Only bind to a port when this file is the process entry point.
+// When imported by tests, listen is skipped so no port conflict occurs.
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`✓ Backend running on http://localhost:${PORT}`);
+    console.log(`✓ Health check: http://localhost:${PORT}/api/health`);
+    console.log(`✓ Mock RMS URL: ${process.env.MOCK_RMS_URL || "not configured"}`);
+  });
+}

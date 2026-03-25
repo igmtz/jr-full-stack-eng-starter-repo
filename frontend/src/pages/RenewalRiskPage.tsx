@@ -34,6 +34,7 @@ interface RiskResponse {
 }
 
 type PageStatus = "idle" | "loading" | "success" | "error";
+type TriggerStatus = "idle" | "loading" | "success" | "error";
 type TierFilter = "all" | "high" | "medium" | "low";
 
 // ---------------------------------------------------------------------------
@@ -108,6 +109,7 @@ function RenewalRiskPage() {
   const [error, setError] = useState<string | null>(null);
   const [tierFilter, setTierFilter] = useState<TierFilter>("all");
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const [triggerState, setTriggerState] = useState<Record<string, TriggerStatus>>({});
 
   // -------------------------------------------------------------------------
   // Handlers
@@ -117,6 +119,7 @@ function RenewalRiskPage() {
     setStatus("loading");
     setError(null);
     setExpandedRows(new Set());
+    setTriggerState({});
     try {
       const res = await fetch(
         `${API_URL}/api/v1/properties/${propertyId}/renewal-risk/calculate`,
@@ -132,6 +135,32 @@ function RenewalRiskPage() {
       setError(err instanceof Error ? err.message : "Unexpected error");
       setStatus("error");
     }
+  }
+
+  async function triggerRenewal(resident: ResidentRisk) {
+    setTriggerState((prev) => ({ ...prev, [resident.residentId]: "loading" }));
+    try {
+      const res = await fetch(
+        `${API_URL}/api/v1/properties/${propertyId}/residents/${resident.residentId}/trigger-renewal`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            riskScore: resident.riskScore,
+            riskTier: resident.riskTier,
+            daysToExpiry: resident.daysToExpiry,
+          }),
+        }
+      );
+      if (!res.ok) throw new Error("RMS request failed");
+      setTriggerState((prev) => ({ ...prev, [resident.residentId]: "success" }));
+    } catch {
+      setTriggerState((prev) => ({ ...prev, [resident.residentId]: "error" }));
+    }
+  }
+
+  function resetTrigger(residentId: string) {
+    setTriggerState((prev) => ({ ...prev, [residentId]: "idle" }));
   }
 
   function toggleRow(residentId: string) {
@@ -265,13 +294,14 @@ function RenewalRiskPage() {
                   <th className="text-left px-4 py-3 text-gray-600 font-medium">
                     Risk Tier
                   </th>
+                  <th className="text-left px-4 py-3 text-gray-600 font-medium">Action</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={5}
+                      colSpan={6}
                       className="px-4 py-8 text-center text-gray-400"
                     >
                       No residents in this tier.
@@ -280,6 +310,7 @@ function RenewalRiskPage() {
                 ) : (
                   filtered.map((resident) => {
                     const expanded = expandedRows.has(resident.residentId);
+                    const ts = triggerState[resident.residentId] ?? "idle";
                     return (
                       <>
                         <tr
@@ -331,12 +362,48 @@ function RenewalRiskPage() {
                           <td className="px-4 py-3">
                             <RiskBadge tier={resident.riskTier} />
                           </td>
+                          {/* Stop row-expand click from firing on the action cell */}
+                          <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                            {ts === "idle" && (
+                              <button
+                                onClick={() => triggerRenewal(resident)}
+                                className="px-3 py-1 text-xs rounded border border-gray-300 text-gray-600 hover:bg-gray-50 transition"
+                              >
+                                Trigger Renewal
+                              </button>
+                            )}
+                            {ts === "loading" && (
+                              <span className="text-xs text-gray-400">Sending…</span>
+                            )}
+                            {ts === "success" && (
+                              <span className="text-xs text-green-700 flex items-center gap-1.5">
+                                ✓ Sent
+                                <button
+                                  onClick={() => resetTrigger(resident.residentId)}
+                                  className="text-gray-400 hover:text-gray-600 underline"
+                                >
+                                  send again?
+                                </button>
+                              </span>
+                            )}
+                            {ts === "error" && (
+                              <span className="text-xs text-red-600 flex items-center gap-1.5">
+                                ✗ Failed
+                                <button
+                                  onClick={() => resetTrigger(resident.residentId)}
+                                  className="text-gray-400 hover:text-gray-600 underline"
+                                >
+                                  retry
+                                </button>
+                              </span>
+                            )}
+                          </td>
                         </tr>
                         {/* Signal breakdown row */}
                         {expanded && (
                           <tr key={`${resident.residentId}-signals`}>
                             <td
-                              colSpan={5}
+                              colSpan={6}
                               className="px-6 py-3 bg-blue-50 border-b border-gray-100"
                             >
                               <SignalBreakdown signals={resident.signals} />
