@@ -145,6 +145,11 @@ Good luck.
 
 # Implementation
 
+<img width="1146" height="771" alt="Screenshot 2026-03-25 at 10 07 36 a m" src="https://github.com/user-attachments/assets/ab4de011-6bfa-48a1-a8d1-62c17fd930f9" />
+<img width="1118" height="756" alt="Screenshot 2026-03-25 at 9 02 35 a m" src="https://github.com/user-attachments/assets/67484878-5dbe-4c73-830a-6541b5323842" />
+<img width="1115" height="786" alt="Screenshot 2026-03-25 at 9 03 14 a m" src="https://github.com/user-attachments/assets/917c532b-0cfd-4e96-895c-c24121360ebf" />
+
+
 ## How to trigger a risk calculation and see results
 
 1. Open http://localhost:5173 — the home page lists all seeded properties.
